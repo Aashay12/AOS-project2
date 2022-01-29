@@ -37,9 +37,10 @@ typedef struct c_struct
 int present_time;
 int N = 0;
 char available_seats_matrix[row][columns][5];
-int response_time_for_H;
-int response_time_for_L;
-int response_time_for_M;
+//Response time for H,L,M
+int rt_h;
+int rt_l;
+int rt_m;
 
 int turnaround_time_for_H;
 int turnaround_time_for_L;
@@ -76,8 +77,8 @@ int main(int argc, char **argv)
 		N = atoi(argv[1]);
 	}
 
-	//Global Variables are Initialized 
-	//Mark "-" for all locations of available_seats_matrix[row][col] 
+	//Global Variables are Initialized
+	//Mark "-" for all locations of available_seats_matrix[row][col]
 	for (int i = 0; i < row; i++)
 	{
 		for (int j = 0; j < columns; j++)
@@ -171,9 +172,9 @@ int main(int argc, char **argv)
 	printf(" ----------------------------------------------------\n");
 	printf("||%3c   || Avg response Time || Avg turnaround time||\n", ' ');
 	printf(" ----------------------------------------------------\n");
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'H', response_time_for_H / (N * 1.0), turnaround_time_for_H / (N * 1.0));
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'L', response_time_for_L / (6.0 * N), turnaround_time_for_L / (6.0 * N));
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'M', response_time_for_M / (3.0 * N), turnaround_time_for_M / (3.0 * N));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'H', rt_h / (N * 1.0), turnaround_time_for_H / (N * 1.0));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'L', rt_l / (6.0 * N), turnaround_time_for_L / (6.0 * N));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'M', rt_m / (3.0 * N), turnaround_time_for_M / (3.0 * N));
 	printf(" ----------------------------------------------------\n");
 	return 0;
 }
@@ -285,20 +286,20 @@ void *sell(void *t_args)
 			{
 			case 'H':
 				random_wait_time = (rand() % 2) + 1;
-				response_time_for_H = response_time_for_H + cust->response_time;
+				rt_h = rt_h + cust->response_time;
 				break;
 			case 'M':
 				random_wait_time = (rand() % 3) + 2;
-				response_time_for_M = response_time_for_M + cust->response_time;
+				rt_m = rt_m + cust->response_time;
 				break;
 			case 'L':
 				random_wait_time = (rand() % 4) + 4;
-				response_time_for_L = response_time_for_L + cust->response_time;
+				rt_l = rt_l + cust->response_time;
 			}
 		}
 		if (cust != NULL)
 		{
- 			if (random_wait_time == 0)
+			if (random_wait_time == 0)
 			{
 				// Function to sell Seats
 				pthread_mutex_lock(&reservation_mutex);
@@ -338,7 +339,6 @@ void *sell(void *t_args)
 				random_wait_time--;
 			}
 		}
-		  
 	}
 
 	while (cust != NULL || s_queue->size > 0)
