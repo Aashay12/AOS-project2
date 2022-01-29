@@ -37,13 +37,14 @@ typedef struct c_struct
 int present_time;
 int N = 0;
 char available_seats_matrix[row][columns][5];
-int response_time_for_H;
-int response_time_for_L;
-int response_time_for_M;
-
-int turnaround_time_for_H;
-int turnaround_time_for_L;
-int turnaround_time_for_M;
+//Response times for H,L,M respectively
+int rt_h;
+int rt_l;
+int rt_m;
+//Turnaround times for H,L,M respectively
+int tat_h;
+int tat_l;
+int tat_m;
 
 //Thread variables
 pthread_t seller_t[total_seller];
@@ -76,8 +77,7 @@ int main(int argc, char **argv)
 		N = atoi(argv[1]);
 	}
 
-	//Global Variables are Initialized 
-	//Mark "-" for all locations of available_seats_matrix[row][col] 
+	//Initaizlize the theater layout with all seats empty
 	for (int i = 0; i < row; i++)
 	{
 		for (int j = 0; j < columns; j++)
@@ -87,11 +87,12 @@ int main(int argc, char **argv)
 	}
 
 	//thread creation
+	//Set parameters including the Number, type and generate the queue.
 	initialize_sThreads(seller_t, 'H', seller_h);
 	initialize_sThreads(seller_t + seller_h, 'M', seller_m);
 	initialize_sThreads(seller_t + seller_h + seller_m, 'L', seller_l);
 
-	//Wait for threads to finish initialization and wait for synchronized clock tick
+	//Wait for threads and synchronized clock tick.
 	while (1)
 	{
 		pthread_mutex_lock(&thCount_mutex);
@@ -103,17 +104,17 @@ int main(int argc, char **argv)
 		pthread_mutex_unlock(&thCount_mutex);
 	}
 
-	//Simulate each time quanta/slice as one iteration
+	//Simulate for each minute
 	printf("\nSimulation:-");
 	printf("\n----------------------------------------------------------------------------------------------------------\n");
 	printf("Time 	Seller      	Activity				Response Time 		Turnaround Time");
 	printf("\n----------------------------------------------------------------------------------------------------------\n");
 	clockWaitThread = 0;
-	revive_sThreads(); //For first tick
+	//For first tick
+	revive_sThreads();
 
 	do
 	{
-
 		//Wake up all thread
 		wait_for_thread_to_serve_present_time();
 		present_time = present_time + 1;
@@ -134,7 +135,8 @@ int main(int argc, char **argv)
 	printf("Tickets after sale period ended");
 	printf("\n----------------------------------------------------------------------------------------------------------\n\n");
 
-	int h_customers = 0, m_customers = 0, l_customers = 0;
+	//Count the number of customers - High, Medium and Low respectively.
+	int h_cust = 0, m_cust = 0, l_cust = 0;
 	for (int r = 0; r < row; r++)
 	{
 		for (int c = 0; c < columns; c++)
@@ -143,11 +145,11 @@ int main(int argc, char **argv)
 				printf("\t");
 			printf("%5s", available_seats_matrix[r][c]);
 			if (available_seats_matrix[r][c][0] == 'H')
-				h_customers++;
+				h_cust++;
 			if (available_seats_matrix[r][c][0] == 'M')
-				m_customers++;
+				m_cust++;
 			if (available_seats_matrix[r][c][0] == 'L')
-				l_customers++;
+				l_cust++;
 		}
 		printf("\n");
 	}
@@ -159,25 +161,28 @@ int main(int argc, char **argv)
 	printf("\nThe number of customers entered are: %02d\n", N);
 	printf("----------------------------------------------------------------------------------------------------------\n\n");
 
+	//Print the number of customers in each category
 	printf(" ------------------------------------------------------------------\n");
 	printf("||%3c || No of Customers || BookedSeat  || Returned || Throughput||\n", ' ');
 	printf(" ------------------------------------------------------------------\n");
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'H', seller_h * N, h_customers, (seller_h * N) - h_customers, (h_customers / 60.0));
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'M', seller_m * N, m_customers, (seller_m * N) - m_customers, (m_customers / 60.0));
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'L', seller_l * N, l_customers, (seller_l * N) - l_customers, (l_customers / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'H', seller_h * N, h_cust, (seller_h * N) - h_cust, (h_cust / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'M', seller_m * N, m_cust, (seller_m * N) - m_cust, (m_cust / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'L', seller_l * N, l_cust, (seller_l * N) - l_cust, (l_cust / 60.0));
 	printf(" -----------------------------------------------------------------\n");
 	printf("\n");
 
+	//Print the metrics for each category
 	printf(" ----------------------------------------------------\n");
 	printf("||%3c   || Avg response Time || Avg turnaround time||\n", ' ');
 	printf(" ----------------------------------------------------\n");
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'H', response_time_for_H / (N * 1.0), turnaround_time_for_H / (N * 1.0));
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'L', response_time_for_L / (6.0 * N), turnaround_time_for_L / (6.0 * N));
-	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'M', response_time_for_M / (3.0 * N), turnaround_time_for_M / (3.0 * N));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'H', rt_h / (N * 1.0), tat_h / (N * 1.0));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'L', rt_l / (6.0 * N), tat_l / (6.0 * N));
+	printf("|| %3c  || %3f          || %.2f 		   ||\n", 'M', rt_m / (3.0 * N), tat_m / (3.0 * N));
 	printf(" ----------------------------------------------------\n");
 	return 0;
 }
 
+//Initialize all threads Params - (seller number, type and seller queue)
 void initialize_sThreads(pthread_t *thread, char s_type, int no_of_sellers)
 {
 	//Create all threads
@@ -221,9 +226,10 @@ void wait_for_thread_to_serve_present_time()
 		pthread_mutex_unlock(&thread_waiting_for_clock_tick_mutex);
 	}
 }
+
+//For fisrt time clock revive the threads
 void revive_sThreads()
 {
-
 	pthread_mutex_lock(&condition_mutex);
 	if (verbose)
 		printf("00:%02d Main Thread Broadcasting Clock Tick\n", present_time);
@@ -231,6 +237,7 @@ void revive_sThreads()
 	pthread_mutex_unlock(&condition_mutex);
 }
 
+//Function to sell ticket to a customer and check for seat avaialbility or timestamp
 void *sell(void *t_args)
 {
 	//Initializing thread
@@ -285,20 +292,20 @@ void *sell(void *t_args)
 			{
 			case 'H':
 				random_wait_time = (rand() % 2) + 1;
-				response_time_for_H = response_time_for_H + cust->response_time;
+				rt_h = rt_h + cust->response_time;
 				break;
 			case 'M':
 				random_wait_time = (rand() % 3) + 2;
-				response_time_for_M = response_time_for_M + cust->response_time;
+				rt_m = rt_m + cust->response_time;
 				break;
 			case 'L':
 				random_wait_time = (rand() % 4) + 4;
-				response_time_for_L = response_time_for_L + cust->response_time;
+				rt_l = rt_l + cust->response_time;
 			}
 		}
 		if (cust != NULL)
 		{
- 			if (random_wait_time == 0)
+			if (random_wait_time == 0)
 			{
 				// Function to sell Seats
 				pthread_mutex_lock(&reservation_mutex);
@@ -321,13 +328,13 @@ void *sell(void *t_args)
 					{
 					case 'H':
 
-						turnaround_time_for_H = turnaround_time_for_H + cust->turnaround_time;
+						tat_h = tat_h + cust->turnaround_time;
 						break;
 					case 'M':
-						turnaround_time_for_M = turnaround_time_for_M + cust->turnaround_time;
+						tat_m = tat_m + cust->turnaround_time;
 						break;
 					case 'L':
-						turnaround_time_for_L = turnaround_time_for_L + cust->turnaround_time;
+						tat_l = tat_l + cust->turnaround_time;
 					}
 				}
 				pthread_mutex_unlock(&reservation_mutex);
@@ -338,7 +345,6 @@ void *sell(void *t_args)
 				random_wait_time--;
 			}
 		}
-		  
 	}
 
 	while (cust != NULL || s_queue->size > 0)
@@ -353,10 +359,10 @@ void *sell(void *t_args)
 	pthread_mutex_unlock(&thCount_mutex);
 }
 
+//Fucntion to check if a seat is empty. If it is then return the index for the same.
 int findAvailableSeat(char s_type)
 {
 	int seatIndex = -1;
-
 	if (s_type == 'H')
 	{
 		for (int row_no = 0; row_no < row; row_no++)
@@ -426,6 +432,7 @@ int findAvailableSeat(char s_type)
 	return -1;
 }
 
+//Function to generate customer queue.
 queue *generate_custQueue(int N)
 {
 	queue *customer_queue = create_queue();
