@@ -56,12 +56,12 @@ pthread_cond_t condition_cond = PTHREAD_COND_INITIALIZER;
 
 //Function declarations
 void queueDisplay(queue *q);
-void create_seller_threads(pthread_t *thread, char s_type, int no_of_sellers);
+void initialize_sThreads(pthread_t *thread, char s_type, int no_of_sellers);
 void wait_for_thread_to_serve_present_time();
-void wakeup_all_seller_threads();
+void revive_sThreads();
 void *sell(void *);
-queue *generate_customer_queue(int);
-int compare_by_arrival_time(void *value1, void *value2);
+queue *generate_custQueue(int);
+int comapre_arrivalTime(void *value1, void *value2);
 int findAvailableSeat(char s_type);
 
 int thCount = 0;
@@ -87,9 +87,9 @@ int main(int argc, char **argv)
 	}
 
 	//thread creation
-	create_seller_threads(seller_t, 'H', seller_h);
-	create_seller_threads(seller_t + seller_h, 'M', seller_m);
-	create_seller_threads(seller_t + seller_h + seller_m, 'L', seller_l);
+	initialize_sThreads(seller_t, 'H', seller_h);
+	initialize_sThreads(seller_t + seller_h, 'M', seller_m);
+	initialize_sThreads(seller_t + seller_h + seller_m, 'L', seller_l);
 
 	//Wait for threads to finish initialization and wait for synchronized clock tick
 	while (1)
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	printf("Time 	Seller      	Activity				Response Time 		Turnaround Time");
 	printf("\n----------------------------------------------------------------------------------------------------------\n");
 	clockWaitThread = 0;
-	wakeup_all_seller_threads(); //For first tick
+	revive_sThreads(); //For first tick
 
 	do
 	{
@@ -117,12 +117,12 @@ int main(int argc, char **argv)
 		//Wake up all thread
 		wait_for_thread_to_serve_present_time();
 		present_time = present_time + 1;
-		wakeup_all_seller_threads();
+		revive_sThreads();
 		//Wait for thread completion
 	} while (present_time < total_run_time);
 
 	//Wakeup all thread so that no more thread keep waiting for clock Tick in limbo
-	wakeup_all_seller_threads();
+	revive_sThreads();
 
 	while (thPresent)
 		;
@@ -178,22 +178,22 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-void create_seller_threads(pthread_t *thread, char s_type, int no_of_sellers)
+void initialize_sThreads(pthread_t *thread, char s_type, int no_of_sellers)
 {
 	//Create all threads
 	for (int t_no = 0; t_no < no_of_sellers; t_no++)
 	{
-		seller *seller_param = (seller *)malloc(sizeof(seller));
-		seller_param->s_number = t_no;
-		seller_param->s_type = s_type;
-		seller_param->s_queue = generate_customer_queue(N);
+		seller *s_Param = (seller *)malloc(sizeof(seller));
+		s_Param->s_number = t_no;
+		s_Param->s_type = s_type;
+		s_Param->s_queue = generate_custQueue(N);
 
 		pthread_mutex_lock(&thCount_mutex);
 		thCount++;
 		pthread_mutex_unlock(&thCount_mutex);
 		if (verbose)
 			printf("Creating thread %c%02d\n", s_type, t_no);
-		pthread_create(thread + t_no, NULL, &sell, seller_param);
+		pthread_create(thread + t_no, NULL, &sell, s_Param);
 	}
 }
 
@@ -221,7 +221,7 @@ void wait_for_thread_to_serve_present_time()
 		pthread_mutex_unlock(&thread_waiting_for_clock_tick_mutex);
 	}
 }
-void wakeup_all_seller_threads()
+void revive_sThreads()
 {
 
 	pthread_mutex_lock(&condition_mutex);
@@ -426,7 +426,7 @@ int findAvailableSeat(char s_type)
 	return -1;
 }
 
-queue *generate_customer_queue(int N)
+queue *generate_custQueue(int N)
 {
 	queue *customer_queue = create_queue();
 	char c_number = 0;
@@ -438,7 +438,7 @@ queue *generate_customer_queue(int N)
 		enqueue(customer_queue, cust);
 		c_number++;
 	}
-	sort(customer_queue, compare_by_arrival_time);
+	sort(customer_queue, comapre_arrivalTime);
 	node *ptr = customer_queue->head;
 	c_number = 0;
 	while (ptr != NULL)
@@ -451,7 +451,7 @@ queue *generate_customer_queue(int N)
 	return customer_queue;
 }
 
-int compare_by_arrival_time(void *value1, void *value2)
+int comapre_arrivalTime(void *value1, void *value2)
 {
 	customer *c1 = (customer *)value1;
 	customer *c2 = (customer *)value2;
