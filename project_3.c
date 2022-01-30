@@ -7,10 +7,10 @@
 #include <pthread.h>
 #include "utility.h"
 
-#define seller_h 1
-#define seller_m 3
-#define seller_l 6
-#define total_seller (seller_h + seller_m + seller_l)
+#define ticketSeller_H 1
+#define ticketSeller_M 3
+#define ticketSeller_L 6
+#define sellerTotal (ticketSeller_H + ticketSeller_M + ticketSeller_L)
 #define row 10
 #define columns 10
 #define total_run_time 60
@@ -36,7 +36,7 @@ typedef struct c_struct
 
 int present_time;
 int N = 0;
-char available_seats_matrix[row][columns][5];
+char emptySeats_matrix[row][columns][5];
 //Response times for H,L,M respectively
 int rt_h;
 int rt_l;
@@ -47,11 +47,11 @@ int tat_l;
 int tat_m;
 
 //Thread variables
-pthread_t seller_t[total_seller];
+pthread_t seller_t[sellerTotal];
 pthread_mutex_t thCount_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t thread_waiting_for_clock_tick_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t clock_tick_waitTh_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t reservation_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t thread_completion_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t completionTh_matrix = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t condition_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition_cond = PTHREAD_COND_INITIALIZER;
 
@@ -62,7 +62,7 @@ void wait_for_thread_to_serve_present_time();
 void revive_sThreads();
 void *sell(void *);
 queue *generate_custQueue(int);
-int comapre_arrivalTime(void *value1, void *value2);
+int comapre_arrivalTime(void *value1, void *value2); 
 int findAvailableSeat(char s_type);
 
 int thCount = 0;
@@ -82,15 +82,15 @@ int main(int argc, char **argv)
 	{
 		for (int j = 0; j < columns; j++)
 		{
-			strncpy(available_seats_matrix[i][j], "-", 1);
+			strncpy(emptySeats_matrix[i][j], "-", 1);
 		}
 	}
 
 	//thread creation
 	//Set parameters including the Number, type and generate the queue.
-	initialize_sThreads(seller_t, 'H', seller_h);
-	initialize_sThreads(seller_t + seller_h, 'M', seller_m);
-	initialize_sThreads(seller_t + seller_h + seller_m, 'L', seller_l);
+	initialize_sThreads(seller_t, 'H', ticketSeller_H);
+	initialize_sThreads(seller_t + ticketSeller_H, 'M', ticketSeller_M);
+	initialize_sThreads(seller_t + ticketSeller_H + ticketSeller_M, 'L', ticketSeller_L);
 
 	//Wait for threads and synchronized clock tick.
 	while (1)
@@ -143,12 +143,12 @@ int main(int argc, char **argv)
 		{
 			if (c != 0)
 				printf("\t");
-			printf("%5s", available_seats_matrix[r][c]);
-			if (available_seats_matrix[r][c][0] == 'H')
+			printf("%5s", emptySeats_matrix[r][c]);
+			if (emptySeats_matrix[r][c][0] == 'H')
 				h_cust++;
-			if (available_seats_matrix[r][c][0] == 'M')
+			if (emptySeats_matrix[r][c][0] == 'M')
 				m_cust++;
-			if (available_seats_matrix[r][c][0] == 'L')
+			if (emptySeats_matrix[r][c][0] == 'L')
 				l_cust++;
 		}
 		printf("\n");
@@ -165,9 +165,9 @@ int main(int argc, char **argv)
 	printf(" ------------------------------------------------------------------\n");
 	printf("||%3c || No of Customers || BookedSeat  || Returned || Throughput||\n", ' ');
 	printf(" ------------------------------------------------------------------\n");
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'H', seller_h * N, h_cust, (seller_h * N) - h_cust, (h_cust / 60.0));
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'M', seller_m * N, m_cust, (seller_m * N) - m_cust, (m_cust / 60.0));
-	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'L', seller_l * N, l_cust, (seller_l * N) - l_cust, (l_cust / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'H', ticketSeller_H * N, h_cust, (ticketSeller_H * N) - h_cust, (h_cust / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'M', ticketSeller_M * N, m_cust, (ticketSeller_M * N) - m_cust, (m_cust / 60.0));
+	printf("||%3c || %15d || %8d || %8d || %.2f         ||\n", 'L', ticketSeller_L * N, l_cust, (ticketSeller_L * N) - l_cust, (l_cust / 60.0));
 	printf(" -----------------------------------------------------------------\n");
 	printf("\n");
 
@@ -216,14 +216,14 @@ void wait_for_thread_to_serve_present_time()
 	//Check if all threads has finished their jobs for this time slice
 	while (1)
 	{
-		pthread_mutex_lock(&thread_waiting_for_clock_tick_mutex);
+		pthread_mutex_lock(&clock_tick_waitTh_mutex);
 		if (clockWaitThread == thPresent)
 		{
 			clockWaitThread = 0;
-			pthread_mutex_unlock(&thread_waiting_for_clock_tick_mutex);
+			pthread_mutex_unlock(&clock_tick_waitTh_mutex);
 			break;
 		}
-		pthread_mutex_unlock(&thread_waiting_for_clock_tick_mutex);
+		pthread_mutex_unlock(&clock_tick_waitTh_mutex);
 	}
 }
 
@@ -242,7 +242,7 @@ void *sell(void *t_args)
 {
 	//Initializing thread
 	seller *args = (seller *)t_args;
-	queue *customer_queue = args->s_queue;
+	queue *c_queue = args->s_queue;
 	queue *s_queue = create_queue();
 	char s_type = args->s_type;
 	int s_number = args->s_number + 1;
@@ -262,9 +262,9 @@ void *sell(void *t_args)
 		if (verbose)
 			printf("%02d  ||  %c%02d || Waiting for next clock tick\n", present_time, s_type, s_number);
 
-		pthread_mutex_lock(&thread_waiting_for_clock_tick_mutex);
+		pthread_mutex_lock(&clock_tick_waitTh_mutex);
 		clockWaitThread++;
-		pthread_mutex_unlock(&thread_waiting_for_clock_tick_mutex);
+		pthread_mutex_unlock(&clock_tick_waitTh_mutex);
 
 		pthread_cond_wait(&condition_cond, &condition_mutex);
 		if (verbose)
@@ -275,9 +275,9 @@ void *sell(void *t_args)
 		if (present_time == total_run_time)
 			break;
 		//All New Customer Came
-		while (customer_queue->size > 0 && ((customer *)customer_queue->head->value)->arrival_time <= present_time)
+		while (c_queue->size > 0 && ((customer *)c_queue->head->value)->arrival_time <= present_time)
 		{
-			customer *temp = (customer *)dequeue(customer_queue);
+			customer *temp = (customer *)dequeue(c_queue);
 			enqueue(s_queue, temp);
 			printf("%02d  ||  %c%d 	||	%c%d%02d arrived			   ||			||			 ||\n", present_time, s_type, s_number, s_type, s_number, temp->c_number);
 		}
@@ -321,7 +321,7 @@ void *sell(void *t_args)
 					int row_no = seatIndex / columns;
 					int col_no = seatIndex % columns;
 					cust->turnaround_time = cust->turnaround_time + present_time;
-					sprintf(available_seats_matrix[row_no][col_no], "%c%d%02d", s_type, s_number, cust->c_number);
+					sprintf(emptySeats_matrix[row_no][col_no], "%c%d%02d", s_type, s_number, cust->c_number);
 					printf("%02d  ||  %c%d 	||	%c%d%02d assigned seat %d,%d    	   ||   		||%15d  	 ||\n", present_time, s_type, s_number, s_type, s_number, cust->c_number, row_no, col_no, cust->turnaround_time);
 
 					switch (s_type)
@@ -369,7 +369,7 @@ int findAvailableSeat(char s_type)
 		{
 			for (int col_no = 0; col_no < columns; col_no++)
 			{
-				if (strcmp(available_seats_matrix[row_no][col_no], "-") == 0)
+				if (strcmp(emptySeats_matrix[row_no][col_no], "-") == 0)
 				{
 					seatIndex = row_no * columns + col_no;
 					return seatIndex;
@@ -389,7 +389,7 @@ int findAvailableSeat(char s_type)
 			{
 				for (int col_no = 0; col_no < columns; col_no++)
 				{
-					if (strcmp(available_seats_matrix[row_no][col_no], "-") == 0)
+					if (strcmp(emptySeats_matrix[row_no][col_no], "-") == 0)
 					{
 						seatIndex = row_no * columns + col_no;
 						return seatIndex;
@@ -401,7 +401,7 @@ int findAvailableSeat(char s_type)
 			{
 				for (int col_no = 0; col_no < columns; col_no++)
 				{
-					if (strcmp(available_seats_matrix[row_no][col_no], "-") == 0)
+					if (strcmp(emptySeats_matrix[row_no][col_no], "-") == 0)
 					{
 						seatIndex = row_no * columns + col_no;
 						return seatIndex;
@@ -420,7 +420,7 @@ int findAvailableSeat(char s_type)
 		{
 			for (int col_no = columns - 1; col_no >= 0; col_no--)
 			{
-				if (strcmp(available_seats_matrix[row_no][col_no], "-") == 0)
+				if (strcmp(emptySeats_matrix[row_no][col_no], "-") == 0)
 				{
 					seatIndex = row_no * columns + col_no;
 					return seatIndex;
@@ -435,18 +435,18 @@ int findAvailableSeat(char s_type)
 //Function to generate customer queue.
 queue *generate_custQueue(int N)
 {
-	queue *customer_queue = create_queue();
+	queue *c_queue = create_queue();
 	char c_number = 0;
 	while (N--)
 	{
 		customer *cust = (customer *)malloc(sizeof(customer));
 		cust->c_number = c_number;
 		cust->arrival_time = rand() % total_run_time;
-		enqueue(customer_queue, cust);
+		enqueue(c_queue, cust);
 		c_number++;
 	}
-	sort(customer_queue, comapre_arrivalTime);
-	node *ptr = customer_queue->head;
+	sort(c_queue, comapre_arrivalTime);
+	node *ptr = c_queue->head;
 	c_number = 0;
 	while (ptr != NULL)
 	{
@@ -455,7 +455,7 @@ queue *generate_custQueue(int N)
 		cust->c_number = c_number;
 		ptr = ptr->next;
 	}
-	return customer_queue;
+	return c_queue;
 }
 
 int comapre_arrivalTime(void *value1, void *value2)
