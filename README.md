@@ -2,7 +2,7 @@
 
 The provided code is a simulation of a ticket selling system with multiple ticket sellers (threads) selling tickets to customers (also represented as threads). The code uses pthreads library for multi-threading.
 
-## Here is a breakdown of the code:
+## Code Functionality:
 
 - The main function initializes the theater layout, creates seller threads with their respective queues, and starts the simulation.
 
